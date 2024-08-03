@@ -1,41 +1,46 @@
 "use client";
 
-import signInSchema, { SignInFormData } from "@/core/schemas/sign-in";
+import { register } from "@/actions/register";
+import signUpSchema, { SignUpFormData } from "@/core/schemas/sign-up";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoadingButton } from "@mui/lab";
 import { Avatar, Divider, TextField, Typography } from "@mui/material";
 import { blue } from "@mui/material/colors";
-import { signIn } from "next-auth/react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { FaGithub } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { FiLock } from "react-icons/fi";
 import { FormError } from "../form-error";
+import { FormSuccess } from "../form-success";
 
-export const LoginForm = () => {
+export const RegisterForm = () => {
+  const [isPending, startTransition] = useTransition();
+  const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
   const {
     handleSubmit,
     control,
+    reset,
     formState: { errors, isSubmitting },
-  } = useForm<SignInFormData>({ resolver: zodResolver(signInSchema) });
-  const onSubmit = async (data: SignInFormData) => {
-    const { email, password } = data;
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
+  } = useForm<SignUpFormData>({ resolver: zodResolver(signUpSchema) });
+  const onSubmit = async (data: SignUpFormData) => {
+    const { email, password, name } = data;
+    startTransition(async () => {
+      const res = await register({
+        email,
+        password,
+        name,
+      });
+      reset();
+      if (res?.error) {
+        setError(res?.error);
+      } else {
+        setSuccess("User successfully created!");
+      }
     });
-    if (res?.error) {
-      setError(res.error as string);
-    }
-    if (res?.ok) {
-      return router.push("/");
-    }
   };
   return (
     <div className="w-96 flex flex-col items-center">
@@ -43,10 +48,24 @@ export const LoginForm = () => {
         <Avatar sx={{ bgcolor: blue[500] }}>
           <FiLock />
         </Avatar>
-        <Typography variant="h5">Sign in</Typography>
+        <Typography variant="h5">Sign Up</Typography>
       </div>
       <form className="w-full" onSubmit={handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-y-5">
+          <Controller
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Name"
+                placeholder="John Doe"
+                helperText={errors.name?.message}
+                error={!!errors.name}
+                fullWidth
+              />
+            )}
+            name="name"
+          />
           <Controller
             control={control}
             render={({ field }) => (
@@ -77,18 +96,15 @@ export const LoginForm = () => {
             name="password"
           />
           <FormError message={error} />
+          <FormSuccess message={success} />
           <LoadingButton
-            loading={isSubmitting}
+            loading={isPending}
             type="submit"
             variant="contained"
             fullWidth
           >
-            Login
+            Register
           </LoadingButton>
-          <div className="flex w-full justify-between text-sm text-blue-500 underline">
-            <Link href="/"> Forgot password?</Link>
-            <Link href="/sign-up"> Don&apos;t have an account? Sign Up </Link>
-          </div>
         </div>
       </form>
       <Divider className="w-full text-gray-600 py-7">OR</Divider>
